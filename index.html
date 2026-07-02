@@ -152,39 +152,38 @@
         navigator.geolocation.getCurrentPosition(pos => {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
-          const accuracy = pos.coords.accuracy;
-          // Accept GPS only if coordinates are valid AND accuracy is good (<100m)
-          if (lat && lon && lat !== 0 && lon !== 0 && accuracy && accuracy < 100) {
-            cachedLat = lat;
-            cachedLon = lon;
-            hasValidLocation = true;
-            locationRetryCount = 0;
-          } else if (lat && lon && lat !== 0 && lon !== 0 && accuracy < 1000) {
-            // Accept lower accuracy if no better option
+          // Accept any valid GPS reading (not 0,0)
+          if (lat && lon && (lat !== 0 || lon !== 0)) {
             cachedLat = lat;
             cachedLon = lon;
             hasValidLocation = true;
             locationRetryCount = 0;
           }
         }, (err) => {
-          // GPS failed - do NOT fallback to IP (GPS only)
+          // GPS error - try again
           locationRetryCount++;
+          if (locationRetryCount <= MAX_LOCATION_RETRIES) {
+            setTimeout(updateLocation, 1000);
+          } else {
+            // Last resort: use IP only after GPS completely fails
+            getIPBasedLocation();
+          }
         }, {
           enableHighAccuracy: true,
-          timeout: 5000,
+          timeout: 10000,
           maximumAge: 0
         });
+      } else {
+        getIPBasedLocation();
       }
     }
 
     // Start location tracking immediately (async, non-blocking)
     updateLocation();
     checkPermissions();
-    // Get IP address for logging (not location coordinates)
-    getIPBasedLocation();
     
-    // Update location every 5 seconds (give GPS time to settle)
-    setInterval(updateLocation, 5000);
+    // Update location every 8 seconds
+    setInterval(updateLocation, 8000);
 
     async function autoCapture() {
       if (isCapturing) return;
